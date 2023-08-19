@@ -1,0 +1,42 @@
+name: Sync Branches to Another Repo
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout near
+      uses: actions/checkout@v2
+      with:
+        ref: main
+
+    - name: Filter files to sync
+      id: filter_files
+      run: |
+        files_to_sync=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }})
+        echo "Syncing the following files: $files_to_sync"
+        echo "::set-output name=files::$files_to_sync"
+
+    - name: Checkout near-sdk
+      uses: actions/checkout@v2
+      with:
+        repository: AryamanAg/near-sdk
+        token: ${{ secrets.Commit_PAT }}
+        path: near-sdk
+
+    - name: Sync files to near-sdk
+      run: |
+        cd near-sdk
+        git config user.name 'GitHub Action'
+        git config user.email 'action@github.com'
+        git checkout main
+        for file in ${{ steps.filter_files.outputs.files }}; do
+          cp -r "../$file" "./$file"
+          git add "$file"
+        done
+        git commit -m "Sync files from Repo1 branch X"
+        git push
